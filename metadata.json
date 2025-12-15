@@ -1,0 +1,7 @@
+{
+  "name": "FocusBubble",
+  "description": "A productivity app combining a focus timer, distraction blocker, and AI coaching to improve study habits.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
