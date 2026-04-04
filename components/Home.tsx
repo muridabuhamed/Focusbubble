@@ -4,7 +4,7 @@ import { User, AppScreen } from '../types';
 
 interface Props {
   user: User;
-  onStartSession: (minutes: number) => void;
+  onStartSession: () => void;
   onNavigate: (screen: AppScreen) => void;
   onSignup?: () => void;
   isActive?: boolean;
@@ -119,7 +119,7 @@ export const Home: React.FC<Props> = ({ user, onStartSession, onNavigate, onSign
 
   // Safe start wrapper
   const handleStart = () => {
-      onStartSession(Math.round(duration));
+      onStartSession();
   };
 
   return (

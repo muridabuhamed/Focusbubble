@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Pause, X, Play, BellOff, Waves, Shield, AlertTriangle } from 'lucide-react';
 import { notificationManager } from '../services/notificationManager';
+import { SessionConfig } from '../types';
 
 interface Props {
-  initialMinutes: number;
-  onEnd: (minutesCompleted: number) => void;
+  config: SessionConfig;
+  onEnd: (minutesCompleted: number, config: SessionConfig) => void;
 }
 
-export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
-  const [secondsLeft, setSecondsLeft] = useState(initialMinutes * 60);
+export const ActiveSession: React.FC<Props> = ({ config, onEnd }) => {
+  const [secondsLeft, setSecondsLeft] = useState(config.duration * 60);
   const [isPaused, setIsPaused] = useState(false);
   const [notificationBlockingActive, setNotificationBlockingActive] = useState(false);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
-  const totalSeconds = initialMinutes * 60;
+  const totalSeconds = config.duration * 60;
 
   // Initialize notification blocking when session starts
   useEffect(() => {
@@ -25,7 +26,7 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
         if (blockNotifications) {
           const hasPermission = await notificationManager.requestPermissions();
           if (hasPermission) {
-            const success = await notificationManager.startFocusMode(initialMinutes);
+            const success = await notificationManager.startFocusMode(config.duration);
             setNotificationBlockingActive(success);
           } else {
             setShowPermissionPrompt(true);
@@ -49,7 +50,7 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
     return () => {
       notificationManager.endFocusMode();
     };
-  }, [initialMinutes]);
+  }, [config.duration]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -57,7 +58,7 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
     if (secondsLeft <= 0) {
       // End notification blocking when session ends
       notificationManager.endFocusMode();
-      onEnd(initialMinutes);
+      onEnd(config.duration, config);
       return;
     }
 
@@ -78,7 +79,7 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [secondsLeft, isPaused, initialMinutes, onEnd, totalSeconds]);
+  }, [secondsLeft, isPaused, config, onEnd, totalSeconds]);
 
   const formatTime = (totalSeconds: number) => {
     const m = Math.floor(totalSeconds / 60);
@@ -197,7 +198,20 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
                     </h1>
                     
                     <div className="mt-4 flex flex-col items-center gap-1.5 opacity-90">
-                         <span className="text-sm font-semibold text-blue-100 tracking-wide uppercase">Deep Focus</span>
+                         <span className="text-sm font-semibold text-blue-100 tracking-wide uppercase">
+                           {config.type === 'POMODORO' ? 'Pomodoro' :
+                            config.type === 'DEEP_WORK' ? 'Deep Work' :
+                            config.type === 'QUICK_SPRINT' ? 'Quick Sprint' :
+                            config.type === 'STUDY' ? 'Study Session' :
+                            'Focus Session'}
+                         </span>
+                         
+                         {/* Subject or Goal */}
+                         {(config.subject || config.goal) && (
+                           <span className="text-xs text-blue-200 font-medium opacity-80">
+                             {config.subject || config.goal}
+                           </span>
+                         )}
                          
                          {/* Ambient Noise Indicator (Placeholder) */}
                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 bg-white/5 px-2.5 py-1 rounded-full ring-1 ring-white/5">
@@ -216,7 +230,7 @@ export const ActiveSession: React.FC<Props> = ({ initialMinutes, onEnd }) => {
              {/* Cancel Button - Absolute Left */}
              <div className={`absolute left-0 transition-all duration-300 transform ${isPaused ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 translate-x-12 scale-90 pointer-events-none'}`}>
                  <button 
-                    onClick={() => onEnd(Math.floor((initialMinutes * 60 - secondsLeft) / 60))}
+                    onClick={() => onEnd(Math.floor((config.duration * 60 - secondsLeft) / 60), config)}
                     className="w-14 h-14 bg-slate-800/80 backdrop-blur text-red-400 rounded-full flex items-center justify-center hover:bg-slate-700/80 hover:text-red-300 transition-all active:scale-90 shadow-lg border border-white/5"
                     title="End Session"
                  >

@@ -22,7 +22,8 @@ import { AICoach } from './components/AICoach';
 import { Stats } from './components/Stats';
 import { Leaderboard } from './components/Leaderboard';
 import { Settings } from './components/Settings';
-import { AppScreen, User, BlockApp } from './types';
+import { SessionTypeSelector } from './components/SessionTypeSelector';
+import { AppScreen, User, BlockApp, SessionConfig, SessionType } from './types';
 import { Lock, X } from 'lucide-react';
 import { notificationManager } from './services/notificationManager';
 
@@ -69,6 +70,9 @@ const screenDepth: Record<string, number> = {
   [AppScreen.EMAIL_VERIFICATION]: 4,
   [AppScreen.VERIFICATION_SUCCESS]: 5,
   [AppScreen.AVATAR_SELECTION]: 6,
+  [AppScreen.SESSION_TYPE_SELECTOR]: 11,
+  [AppScreen.FOCUS_SESSION]: 12,
+  [AppScreen.SESSION_SUMMARY]: 13,
   // Tabs are high depth
   [AppScreen.HOME]: 10,
   [AppScreen.STATS]: 10,
@@ -84,7 +88,10 @@ export default function App() {
   const [user, setUser] = useState<User>(defaultUser);
   const [apps, setApps] = useState<BlockApp[]>(defaultApps);
   const [lastSessionMinutes, setLastSessionMinutes] = useState(0);
-  const [activeSessionMinutes, setActiveSessionMinutes] = useState(25);
+  const [activeSessionConfig, setActiveSessionConfig] = useState<SessionConfig>({
+    type: SessionType.STANDARD,
+    duration: 25
+  });
   const [sessionCount, setSessionCount] = useState(0);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [tempEmail, setTempEmail] = useState('');
@@ -215,31 +222,8 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
     try {
-      const googleUser = await signInWithGoogle();
-      
-      // Try to load existing user data from Firestore
-      const existingData = await loadUserData(googleUser.uid);
-      
-      if (existingData) {
-        // Existing user - load their data
-        setUser(existingData);
-        setCurrentUid(googleUser.uid);
-        
-        // Load their blocked apps
-        const blockedApps = await loadBlockedApps(googleUser.uid);
-        if (blockedApps) setApps(blockedApps);
-        
-        handleNavigate(AppScreen.HOME);
-      } else {
-        // New user - set up account
-        setCurrentUid(googleUser.uid);
-        handleAuthSuccess(
-          googleUser.name, 
-          googleUser.username, 
-          googleUser.email, 
-          true // Skip email verification for Google sign-in
-        );
-      }
+      await signInWithGoogle();
+      // OAuth will redirect - the auth state change listener will handle the user data
     } catch (error: any) {
       alert('Google Sign-In failed: ' + (error.message || 'Please try again'));
       console.error('Google auth error:', error);
@@ -322,12 +306,16 @@ export default function App() {
     handleNavigate(AppScreen.HOME);
   };
 
-  const startSession = (minutes: number) => {
-    setActiveSessionMinutes(minutes);
+  const startSession = (config: SessionConfig) => {
+    setActiveSessionConfig(config);
     handleNavigate(AppScreen.FOCUS_SESSION);
   };
 
-  const endSession = (minutesCompleted: number) => {
+  const handleSessionTypeSelected = (config: SessionConfig) => {
+    startSession(config);
+  };
+
+  const endSession = (minutesCompleted: number, config: SessionConfig) => {
     setLastSessionMinutes(minutesCompleted);
     setSessionCount(prev => prev + 1);
     
@@ -366,6 +354,10 @@ export default function App() {
         durationMinutes: minutesCompleted,
         completedAt: new Date(),
         focusScore: 100, // Can calculate based on distractions later
+        distractions: 0, // Can be tracked later
+        type: config.type,
+        subject: config.subject,
+        breaksTaken: 0 // Can be tracked later
       });
     }
 
@@ -402,7 +394,7 @@ export default function App() {
             homeScreen={
               <Home 
                 user={user} 
-                onStartSession={startSession} 
+                onStartSession={() => handleNavigate(AppScreen.SESSION_TYPE_SELECTOR)} 
                 onNavigate={handleNavigate}
                 onSignup={handleGuestSignup} 
                 isActive={screen === AppScreen.HOME}
@@ -437,13 +429,17 @@ export default function App() {
                 <Auth 
                   onAuthSuccess={(user) => {
                     // Map Supabase user to app user format
-                    const appUser = {
-                      uid: user.id,
+                    const appUser: User = {
                       name: user.user_metadata?.name || user.user_metadata?.full_name || 'User',
                       email: user.email || '',
                       avatar: user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.name || 'User')}`,
                       username: user.user_metadata?.username || '@' + (user.email?.split('@')[0] || 'user'),
-                      isVerified: !!user.email_confirmed_at
+                      isVerified: !!user.email_confirmed_at,
+                      focusLevel: "Focus Beginner", // Default values
+                      streak: 0,
+                      totalHours: 0,
+                      goals: [],
+                      isPro: false
                     };
                     setUser(appUser);
                     handleNavigate(AppScreen.HOME);
@@ -501,8 +497,16 @@ export default function App() {
               return <VerificationSuccess onContinue={() => handleNavigate(AppScreen.AVATAR_SELECTION)} />;
             case AppScreen.AVATAR_SELECTION:
               return <AvatarSelection onContinue={handleAvatarSelected} />;
+            case AppScreen.SESSION_TYPE_SELECTOR:
+              return (
+                <SessionTypeSelector 
+                  onSelectSession={handleSessionTypeSelected}
+                  onBack={() => handleNavigate(AppScreen.HOME)}
+                  defaultDuration={25}
+                />
+              );
             case AppScreen.FOCUS_SESSION:
-              return <ActiveSession initialMinutes={activeSessionMinutes} onEnd={endSession} />;
+              return <ActiveSession config={activeSessionConfig} onEnd={endSession} />;
             case AppScreen.SESSION_SUMMARY:
               return <SessionSummary minutes={lastSessionMinutes} onHome={handleSessionSummaryFinish} />;
             case AppScreen.BLOCKLIST:

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { User, BlockApp } from '../types';
+import { User, BlockApp, SessionData } from '../types';
 
 // User data structure in Supabase
 interface UserData {
@@ -172,11 +172,7 @@ export const loadBlockedApps = async (uid: string): Promise<BlockApp[] | null> =
 // Save a completed session
 export const saveSession = async (
   uid: string,
-  sessionData: {
-    durationMinutes: number;
-    completedAt: Date;
-    focusScore: number;
-  }
+  sessionData: SessionData
 ): Promise<boolean> => {
   if (!supabase) {
     console.log('💾 Demo mode - session not saved to database');
@@ -191,6 +187,10 @@ export const saveSession = async (
         duration_minutes: sessionData.durationMinutes,
         completed_at: sessionData.completedAt.toISOString(),
         focus_score: sessionData.focusScore,
+        session_type: sessionData.type,
+        subject: sessionData.subject || null,
+        breaks_taken: sessionData.breaksTaken || 0,
+        cycles: sessionData.cycles || null,
         created_at: new Date().toISOString(),
       });
 

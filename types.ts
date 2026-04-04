@@ -12,6 +12,7 @@ export enum AppScreen {
   PASSWORD_RESET_SUCCESS = 'PASSWORD_RESET_SUCCESS', // New: Reset Success
   AVATAR_SELECTION = 'AVATAR_SELECTION', // Avatar picker
   HOME = 'HOME',
+  SESSION_TYPE_SELECTOR = 'SESSION_TYPE_SELECTOR',
   FOCUS_SESSION = 'FOCUS_SESSION',
   SESSION_SUMMARY = 'SESSION_SUMMARY',
   BLOCKLIST = 'BLOCKLIST',
@@ -42,11 +43,46 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export enum SessionType {
+  STANDARD = 'STANDARD',
+  POMODORO = 'POMODORO',
+  DEEP_WORK = 'DEEP_WORK',
+  QUICK_SPRINT = 'QUICK_SPRINT',
+  STUDY = 'STUDY'
+}
+
+export interface SessionConfig {
+  type: SessionType;
+  duration: number; // main session duration in minutes
+  shortBreak?: number; // short break duration in minutes
+  longBreak?: number; // long break duration in minutes
+  cycles?: number; // number of cycles (for Pomodoro)
+  subject?: string; // for study sessions
+  goal?: string; // session-specific goal
+  allowBreaks?: boolean; // whether breaks are suggested
+  breakInterval?: number; // minutes between break suggestions
+}
+
 export interface SessionData {
   durationMinutes: number;
   distractions: number;
   completedAt: Date;
   focusScore: number;
+  type: SessionType;
+  cycles?: number; // completed cycles for Pomodoro
+  subject?: string; // for study sessions
+  breaksTaken?: number;
+}
+
+export interface SessionTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: SessionType;
+  config: Omit<SessionConfig, 'type'>;
+  color: string;
+  isCustom?: boolean;
 }
 
 export interface BlockApp {
